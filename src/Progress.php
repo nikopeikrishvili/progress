@@ -29,10 +29,10 @@ class Progress implements \IteratorAggregate
 
     public function getIterator(): Generator
     {
-        foreach ($this->iterable as $item) {
+        foreach ($this->iterable as $key => $item) {
             $this->currentIndex++;
             self::showProgress();
-            yield $item;
+            yield $key => $item;
         }
 
         $key = array_search($this, self::$stack, true);
