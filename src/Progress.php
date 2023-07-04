@@ -4,40 +4,47 @@ declare(strict_types=1);
 
 namespace Progress;
 
-use Exception;
 use Generator;
 
-class Progress
+class Progress implements \IteratorAggregate
 {
     private static array $stack = [];
     private static int $progressSize = 50;
+    private iterable $iterable;
+    private int $total;
+    private int $currentIndex = 0;
+    private string $name;
 
     /**
      * @param mixed $iterable
      * @param string|null $name
-     * @return Generator
-     * @throws Exception
      */
-    public static function wrap(mixed $iterable, string $name = null): Generator
+    public function __construct(iterable $iterable, string $name = null)
     {
-        if (!is_iterable($iterable)) {
-            throw new Exception('Data is not iterable');
+        $this->iterable = $iterable;
+        $this->total = count($iterable);
+        $this->name = $name ?? 'Progress ';
+        self::$stack[] = $this;
+    }
+
+    public function getIterator(): Generator
+    {
+        foreach ($this->iterable as $key => $item) {
+            $this->currentIndex++;
+            self::showProgress();
+            yield $key => $item;
         }
-        $hash = md5(serialize($iterable));
-        $nameForArray = $name ?? 'Progress ';
-        self::$stack[$hash] = ['total' => count($iterable), 'current_index' => 0, 'hash' => $hash,'name'=>$nameForArray];
 
-        foreach ($iterable as $item) {
-            self::clearConsole();
-            $currentHash = md5(serialize($iterable));
-            foreach (self::$stack as $hash => $arrayData) {
-                if ($currentHash === $hash) {
-                    self::$stack[$currentHash]['current_index']++;
-                }
-                self::printProgress($hash);
-            }
+        $key = array_search($this, self::$stack, true);
+        unset(self::$stack[$key]);
+    }
 
-            yield $item;
+
+    private static function showProgress(): void
+    {
+        self::clearConsole();
+        foreach (self::$stack as $item) {
+            $item->printProgress();
         }
     }
 
@@ -50,18 +57,13 @@ class Progress
     }
 
     /**
-     * @param string $hash
      * @return void
      */
-    private static function printProgress(string $hash): void
+    private function printProgress(): void
     {
-        $total = self::$stack[$hash]['total'];
-        $currentIndex = self::$stack[$hash]['current_index'];
-        $name = self::$stack[$hash]['name'];
-
-        $progress = round(($currentIndex / $total) * self::$progressSize);
-        echo $name.": [";
+        $progress = round(($this->currentIndex / $this->total) * self::$progressSize);
+        echo $this->name . ": [";
         echo str_repeat("=", (int)$progress);
-        echo "] " . round(($currentIndex / $total) * 100) . "%\n";
+        echo "] " . round(($this->currentIndex / $this->total) * 100) . "%\n";
     }
 }
